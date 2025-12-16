@@ -10,7 +10,7 @@ var ErrInvalidString = errors.New("invalid string")
 
 func Unpack(input string) (string, error) {
 	var builder strings.Builder
-	var currentState = START
+	currentState := START
 	var lastRune rune
 
 	for _, char := range input {
