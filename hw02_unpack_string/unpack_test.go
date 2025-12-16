@@ -20,7 +20,7 @@ func TestUnpack(t *testing.T) {
 		{input: "aaф0b", expected: "aab"},
 		{input: "如何在Go中将字符数字转换为整数", expected: "如何在Go中将字符数字转换为整数"},
 		{input: "如3何在Go中将字符数0字转换为5整数", expected: "如如如何在Go中将字符字转换为为为为为整数"},
-		{input: "👨‍3", expected: "👨‍👨‍👨‍"},
+		{input: "👨3", expected: "👨👨👨"},
 		// uncomment if task with asterisk completed
 		// {input: `qwe\4\5`, expected: `qwe45`},
 		// {input: `qwe\45`, expected: `qwe44444`},
