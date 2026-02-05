@@ -49,7 +49,7 @@ func TestList(t *testing.T) {
 		require.Equal(t, []int{70, 80, 60, 40, 10, 30, 50}, elems)
 	})
 
-	t.Run("nil value okay", func(t *testing.T) {
+	t.Run("nil value okay", func(_ *testing.T) {
 		l := NewList()
 
 		front := l.PushFront(nil)
