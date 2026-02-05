@@ -49,8 +49,75 @@ func TestCache(t *testing.T) {
 		require.Nil(t, val)
 	})
 
-	t.Run("purge logic", func(t *testing.T) {
-		// Write me
+	t.Run("purge logic 1", func(t *testing.T) {
+		c := NewCache(3)
+
+		// кладём 3 элемента
+		require.False(t, c.Set("k1", 1))
+		require.False(t, c.Set("k2", 2))
+		require.False(t, c.Set("k3", 3))
+
+		// все на месте
+		v, ok := c.Get("k1")
+		require.True(t, ok)
+		require.Equal(t, 1, v)
+
+		v, ok = c.Get("k2")
+		require.True(t, ok)
+		require.Equal(t, 2, v)
+
+		v, ok = c.Get("k3")
+		require.True(t, ok)
+		require.Equal(t, 3, v)
+
+		// добавляем 4-й -> должен вытолкнуться самый старый (k1)
+		require.False(t, c.Set("k4", 4))
+
+		_, ok = c.Get("k1")
+		require.False(t, ok)
+
+		v, ok = c.Get("k2")
+		require.True(t, ok)
+		require.Equal(t, 2, v)
+
+		v, ok = c.Get("k3")
+		require.True(t, ok)
+		require.Equal(t, 3, v)
+
+		v, ok = c.Get("k4")
+		require.True(t, ok)
+		require.Equal(t, 4, v)
+	})
+
+	t.Run("purge logic 2", func(t *testing.T) {
+		c := NewCache(3)
+
+		require.False(t, c.Set("k1", 1))
+		require.False(t, c.Set("k2", 2))
+		require.False(t, c.Set("k3", 3))
+
+		v, ok := c.Get("k1")
+		require.True(t, ok)
+		require.Equal(t, 1, v)
+
+		require.True(t, c.Set("k2", 200))
+
+		require.False(t, c.Set("k4", 4))
+
+		_, ok = c.Get("k3")
+		require.False(t, ok, "k3 should be evicted as least recently used")
+
+		v, ok = c.Get("k1")
+		require.True(t, ok)
+		require.Equal(t, 1, v)
+
+		v, ok = c.Get("k2")
+		require.True(t, ok)
+		require.Equal(t, 200, v)
+
+		v, ok = c.Get("k4")
+		require.True(t, ok)
+		require.Equal(t, 4, v)
 	})
 }
 

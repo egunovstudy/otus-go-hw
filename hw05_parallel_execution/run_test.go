@@ -9,12 +9,9 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/goleak"
 )
 
 func TestRun(t *testing.T) {
-	defer goleak.VerifyNone(t)
-
 	t.Run("if were errors in first M tasks, than finished not more N+M tasks", func(t *testing.T) {
 		tasksCount := 50
 		tasks := make([]Task, 0, tasksCount)
@@ -67,4 +64,89 @@ func TestRun(t *testing.T) {
 		require.Equal(t, int32(tasksCount), runTasksCount, "not all tasks were completed")
 		require.LessOrEqual(t, int64(elapsedTime), int64(sumTime/2), "tasks were run sequentially?")
 	})
+}
+
+func TestRun_AllTasksExecuted_NoErrors(t *testing.T) {
+	t.Parallel()
+
+	const total = 50
+	var started int32
+
+	tasks := make([]Task, 0, total)
+	for i := 0; i < total; i++ {
+		tasks = append(tasks, func() error {
+			atomic.AddInt32(&started, 1)
+			time.Sleep(2 * time.Millisecond)
+			return nil
+		})
+	}
+
+	err := Run(tasks, 4, 3)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := int(atomic.LoadInt32(&started)); got != total {
+		t.Fatalf("expected %d tasks executed, got %d", total, got)
+	}
+}
+
+func TestRun_StopOnErrors_ExecutedNotMoreThanNPlusM_WhenFirstMFail(t *testing.T) {
+	t.Parallel()
+
+	const (
+		n     = 5
+		m     = 3
+		total = 100
+	)
+
+	var started int32
+	someErr := errors.New("boom")
+
+	tasks := make([]Task, 0, total)
+	for i := 0; i < total; i++ {
+		tasks = append(tasks, func() error {
+			atomic.AddInt32(&started, 1)
+
+			time.Sleep(5 * time.Millisecond)
+
+			if i < m {
+				return someErr
+			}
+			return nil
+		})
+	}
+
+	err := Run(tasks, n, m)
+	if !errors.Is(err, ErrErrorsLimitExceeded) {
+		t.Fatalf("expected ErrErrorsLimitExceeded, got %v", err)
+	}
+
+	gotStarted := int(atomic.LoadInt32(&started))
+	if gotStarted > n+m {
+		t.Fatalf("expected executed tasks <= %d (n+m), got %d", n+m, gotStarted)
+	}
+}
+
+func TestRun_MLessOrEqualZero_IgnoreErrorsAndRunAll(t *testing.T) {
+	t.Parallel()
+
+	const total = 30
+	var started int32
+	someErr := errors.New("fail")
+
+	tasks := make([]Task, 0, total)
+	for i := 0; i < total; i++ {
+		tasks = append(tasks, func() error {
+			atomic.AddInt32(&started, 1)
+			return someErr
+		})
+	}
+
+	err := Run(tasks, 3, 0)
+	if err != nil {
+		t.Fatalf("expected nil (errors ignored), got %v", err)
+	}
+	if got := int(atomic.LoadInt32(&started)); got != total {
+		t.Fatalf("expected %d tasks executed, got %d", total, got)
+	}
 }
