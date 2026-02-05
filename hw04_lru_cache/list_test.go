@@ -54,7 +54,5 @@ func TestList(t *testing.T) {
 
 		front := l.PushFront(nil)
 		_ = front
-
 	})
-
 }
