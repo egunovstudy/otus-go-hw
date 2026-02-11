@@ -9,7 +9,6 @@ type (
 type Stage func(in In) (out Out)
 
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-
 	stream := wrapWithDone(in, done)
 	for _, stage := range stages {
 		stream = wrapWithDone(stage(stream), done)
