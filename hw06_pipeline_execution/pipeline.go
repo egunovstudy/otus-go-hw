@@ -9,16 +9,19 @@ type (
 type Stage func(in In) (out Out)
 
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-	stream := in
+	ch := in
 	for _, stage := range stages {
-		stream = stage(stream)
+		ch = stage(orDone(ch, done))
 	}
-	return wrapWithDone(stream, done)
+	return orDone(ch, done)
 }
 
-func wrapWithDone(in In, done In) Out {
+func orDone(in In, done In) Out {
 	if done == nil {
 		return in
+	}
+	if in == nil {
+		return nil
 	}
 
 	out := make(Bi)
@@ -51,7 +54,7 @@ func wrapWithDone(in In, done In) Out {
 }
 
 func drain(in In) {
-	for range in {
-		// intentionally drained
+	for v := range in {
+		_ = v // avoid revive empty-block warning; intentionally discard
 	}
 }
