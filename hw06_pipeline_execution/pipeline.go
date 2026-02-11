@@ -9,65 +9,37 @@ type (
 type Stage func(in In) (out Out)
 
 func ExecutePipeline(in In, done In, stages ...Stage) Out {
-	stream := wrapWithDone(in, done)
+	stream := in
 	for _, stage := range stages {
-		stream = wrapWithDone(stage(stream), done)
+		stream = stage(stream)
 	}
-	return stream
+	return wrapWithDone(stream, done)
 }
 
 func wrapWithDone(in In, done In) Out {
-	if in == nil {
-		return nil
+	if done == nil {
+		return in
 	}
 
 	out := make(Bi)
 
-	if done == nil {
-		go func() {
-			defer close(out)
-			for v := range in {
-				out <- v
-			}
-		}()
-		return out
-	}
-
 	go func() {
-		closed := false
-		defer func() {
-			if !closed {
-				close(out)
-			}
-		}()
+		defer close(out)
 
 		for {
 			select {
 			case <-done:
-				if !closed {
-					close(out)
-					closed = true
-				}
-
-				for range in {
-					// выкидываем
-				}
+				drain(in)
 				return
 
 			case v, ok := <-in:
 				if !ok {
 					return
 				}
-				if closed {
-					continue
-				}
 
 				select {
 				case <-done:
-					close(out)
-					closed = true
-					for range in {
-					}
+					drain(in)
 					return
 				case out <- v:
 				}
@@ -76,4 +48,10 @@ func wrapWithDone(in In, done In) Out {
 	}()
 
 	return out
+}
+
+func drain(in In) {
+	for range in {
+		// intentionally drained
+	}
 }
