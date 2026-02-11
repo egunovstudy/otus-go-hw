@@ -145,6 +145,95 @@ func TestAllStageStop(t *testing.T) {
 		wg.Wait()
 
 		require.Len(t, result, 0)
-
 	})
+}
+
+func TestPipelineNoStages(t *testing.T) {
+	t.Run("pass through", func(t *testing.T) {
+		in := make(Bi)
+		go func() {
+			defer close(in)
+			for i := 0; i < 5; i++ {
+				in <- i
+			}
+		}()
+
+		got := make([]int, 0, 5)
+		for v := range ExecutePipeline(in, nil /* done */) {
+			got = append(got, v.(int))
+		}
+		require.Equal(t, []int{0, 1, 2, 3, 4}, got)
+	})
+
+	t.Run("done cancels", func(t *testing.T) {
+		in := make(Bi)
+		done := make(Bi)
+		close(done)
+
+		prodDone := make(chan struct{})
+		go func() {
+			defer close(prodDone)
+			defer close(in)
+			for i := 0; i < 100; i++ {
+				in <- i
+			}
+		}()
+
+		select {
+		case _, ok := <-ExecutePipeline(in, done):
+			require.False(t, ok)
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("pipeline did not close on done")
+		}
+
+		select {
+		case <-prodDone:
+			// ok
+		case <-time.After(200 * time.Millisecond):
+			t.Fatal("producer got stuck; pipeline probably didn't drain input")
+		}
+	})
+}
+
+func TestPipelineDrainsUpstreamOnDone(t *testing.T) {
+	in := make(Bi)
+	done := make(Bi)
+
+	producerFinished := make(chan struct{})
+	go func() {
+		defer close(producerFinished)
+		defer close(in)
+		for i := 0; i < 10_000; i++ {
+			in <- i
+		}
+	}()
+
+	out := ExecutePipeline(in, done,
+		func(in In) Out {
+			out := make(Bi)
+			go func() {
+				defer close(out)
+				for range in {
+					time.Sleep(time.Millisecond)
+					out <- 1
+				}
+			}()
+			return out
+		},
+	)
+
+	close(done)
+
+	select {
+	case _, ok := <-out:
+		require.False(t, ok)
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("output did not close after done")
+	}
+
+	select {
+	case <-producerFinished:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("producer stuck; pipeline likely didn't drain upstream")
+	}
 }

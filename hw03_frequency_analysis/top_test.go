@@ -43,8 +43,23 @@ var text = `Как видите, он  спускается  по  лестни�
 	посидеть у огня и послушать какую-нибудь интересную сказку.
 		В этот вечер...`
 
+func TestOneWordStr(t *testing.T) {
+	t.Run("same word", func(t *testing.T) {
+		expected := []string{"тест"}
+		require.Equal(t, expected, Top10("тест"))
+	})
+}
+
+func TestSameWordInDifferentCase(t *testing.T) {
+	t.Run("same words in diff cases", func(t *testing.T) {
+		text := "тест Тест Тест ТесТ ТесТ ТесТ"
+		expected := []string{"ТесТ", "Тест", "тест"}
+		require.Equal(t, expected, Top10(text))
+	})
+}
+
 func TestTop10(t *testing.T) {
-	t.Run("no words in empty string", func(t *testing.T) {
+	t.Run("no words in empty name", func(t *testing.T) {
 		require.Len(t, Top10(""), 0)
 	})
 
