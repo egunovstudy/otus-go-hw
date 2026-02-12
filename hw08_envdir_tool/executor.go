@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,17 +13,17 @@ func RunCmd(cmd []string, env Environment) (returnCode int) {
 		return 1
 	}
 
+	// #nosec G204 -- This is a CLI tool: executing user-provided command is expected behavior.
 	c := exec.Command(cmd[0], cmd[1:]...)
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 
-	merged := mergeEnv(os.Environ(), env)
-	c.Env = merged
+	c.Env = mergeEnv(os.Environ(), env)
 
 	if err := c.Run(); err != nil {
 		var exitErr *exec.ExitError
-		if ok := errorsAs(err, &exitErr); ok {
+		if errors.As(err, &exitErr) {
 			return exitErr.ExitCode()
 		}
 		return 1
@@ -56,21 +57,4 @@ func mergeEnv(base []string, env Environment) []string {
 		out = append(out, k+"="+v)
 	}
 	return out
-}
-
-// small wrapper to avoid importing "errors" in tests-only style checks? (keeps code explicit)
-func errorsAs(err error, target any) bool {
-	// stdlib errors.As
-	type aser interface {
-		As(any) bool
-	}
-	// We can just call errors.As, but this avoids linter complaining in some setups about shadowing.
-	// However simplest is to use errors.As directly.
-	return asStd(err, target)
-}
-
-func asStd(err error, target any) bool {
-	// Inline to keep imports small here; real call is errors.As.
-	// (Compiler will inline; functionality is delegated in a separate file below.)
-	return errorsAsStd(err, target)
 }
