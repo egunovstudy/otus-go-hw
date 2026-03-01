@@ -86,7 +86,7 @@ func hasSuffixFold(s, suffix string) bool {
 			continue
 		}
 		if 'A' <= cb && cb <= 'Z' {
-			cb = cb + ('a' - 'A')
+			cb += 'a' - 'A'
 		}
 		if cb != sb {
 			return false
@@ -100,7 +100,7 @@ func toLowerASCII(s string) string {
 	for i := 0; i < len(s); i++ {
 		c := s[i]
 		if 'A' <= c && c <= 'Z' {
-			c = c + ('a' - 'A')
+			c += 'a' - 'A'
 		}
 		b[i] = c
 	}
