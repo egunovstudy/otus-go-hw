@@ -62,4 +62,43 @@ func TestTelnetClient(t *testing.T) {
 
 		wg.Wait()
 	})
+
+	t.Run("connect error", func(t *testing.T) {
+		// Listen on a random port and immediately close it, then ensure connect fails.
+		l, err := net.Listen("tcp", "127.0.0.1:")
+		require.NoError(t, err)
+		addr := l.Addr().String()
+		require.NoError(t, l.Close())
+
+		client := NewTelnetClient(addr, 50*time.Millisecond, io.NopCloser(bytes.NewBuffer(nil)), io.Discard)
+		err = client.Connect()
+		require.Error(t, err)
+	})
+
+	t.Run("send fails after peer hard close", func(t *testing.T) {
+		l, err := net.Listen("tcp", "127.0.0.1:")
+		require.NoError(t, err)
+		defer func() { require.NoError(t, l.Close()) }()
+
+		accepted := make(chan struct{})
+		go func() {
+			defer close(accepted)
+			conn, err := l.Accept()
+			require.NoError(t, err)
+			tcp := conn.(*net.TCPConn)
+			// Linger=0 makes close send RST, so client write should error deterministically.
+			require.NoError(t, tcp.SetLinger(0))
+			require.NoError(t, tcp.Close())
+		}()
+
+		in := bytes.NewBufferString("hello\n")
+		client := NewTelnetClient(l.Addr().String(), time.Second, io.NopCloser(in), io.Discard)
+		require.NoError(t, client.Connect())
+		defer func() { require.NoError(t, client.Close()) }()
+
+		<-accepted
+		time.Sleep(10 * time.Millisecond)
+		err = client.Send()
+		require.Error(t, err)
+	})
 }
