@@ -1,3 +1,4 @@
+//go:build !bench
 // +build !bench
 
 package hw10programoptimization
@@ -36,4 +37,71 @@ func TestGetDomainStat(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, DomainStat{}, result)
 	})
+}
+
+// ---------------------
+// Additional tests
+// ---------------------
+
+func TestGetDomainStat_CaseInsensitive(t *testing.T) {
+	data := `{"Email":"a@Example.COM"}
+{"Email":"b@example.com"}
+{"Email":"c@EXAMPLE.com"}`
+
+	result, err := GetDomainStat(bytes.NewBufferString(data), "CoM")
+	require.NoError(t, err)
+
+	require.Equal(t, DomainStat{
+		"example.com": 3,
+	}, result)
+}
+
+func TestGetDomainStat_TrimDomain(t *testing.T) {
+	data := `{"Email":"a@test.gov"}`
+
+	result, err := GetDomainStat(bytes.NewBufferString(data), "   gov   ")
+	require.NoError(t, err)
+
+	require.Equal(t, DomainStat{
+		"test.gov": 1,
+	}, result)
+}
+
+func TestGetDomainStat_EmptyDomain(t *testing.T) {
+	data := `{"Email":"a@test.gov"}`
+
+	result, err := GetDomainStat(bytes.NewBufferString(data), "   ")
+	require.NoError(t, err)
+	require.Equal(t, DomainStat{}, result)
+}
+
+func TestGetDomainStat_InvalidLine(t *testing.T) {
+	data := `{"Email":"a@test.gov"}
+NOT_JSON`
+
+	_, err := GetDomainStat(bytes.NewBufferString(data), "gov")
+	require.Error(t, err)
+}
+
+func TestGetDomainStat_NoAtSymbol(t *testing.T) {
+	data := `{"Email":"invalid-email"}`
+
+	result, err := GetDomainStat(bytes.NewBufferString(data), "com")
+	require.NoError(t, err)
+	require.Equal(t, DomainStat{}, result)
+}
+
+func TestGetDomainStat_EmptyLinesIgnored(t *testing.T) {
+	data := `
+
+{"Email":"a@test.gov"}
+
+`
+
+	result, err := GetDomainStat(bytes.NewBufferString(data), "gov")
+	require.NoError(t, err)
+
+	require.Equal(t, DomainStat{
+		"test.gov": 1,
+	}, result)
 }
